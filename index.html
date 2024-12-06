@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chimp Memory Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Droid+Sans&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: black;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: 'Droid Sans', sans-serif;
+        }
+
+        #gameArea {
+            position: relative;
+            width: 604px;
+            height: 604px;
+            border: 6px solid white;
+        }
+
+        #startCircle {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            width: 84px;
+            height: 84px;
+            border: 6px solid white;
+            border-radius: 100%;
+            cursor: pointer;
+        }
+
+        .number {
+            position: absolute;
+            width: 96px;
+            height: 96px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            font-size: 80px;
+        }
+
+        .square { background-color: white; }
+
+        #message {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 50px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameArea">
+        <div id="startCircle"></div>
+        <div id="message"></div>
+    </div>
+    <script>
+        const timingFit = [5.35, -1.2986, 0.11528];
+        // timingFit[0] is the x^0 term
+        // timingFit[1] is the x^1 term
+        // timingFit[2] is the x^2 term
+        const gameArea = document.getElementById('gameArea');
+        const startCircle = document.getElementById('startCircle');
+        const message = document.getElementById('message');
+        let divs = [], currentN = 4, currentNumber = 1, gameActive = false;
+        let roundStats = {};
+        let hideTimer = null;
+        function createDiv(num, x, y) {
+            const div = document.createElement('div');
+            div.className = 'number';
+            div.style.left = `${x}px`;
+            div.style.top = `${y}px`;
+            div.textContent = num;
+            div.dataset.number = num;
+            div.dataset.x = x;
+            div.dataset.y = y;
+            div.addEventListener('click', handleClick);
+            return div;
+        }
+        function getRandomPosition() {
+            const positions = [];
+            for (let i = 0; i < 6; i++) {
+                for (let j = 0; j < 6; j++) {
+                    positions.push({ x: j * 100 + 4, y: i * 100 + 4});
+                }
+            }
+            return positions[Math.floor(Math.random() * positions.length)];
+        }
+        function hideNumbers() {
+            divs.forEach(d => {
+                d.textContent = '';
+                d.className = 'number square';
+            });
+        }
+        function startRound() {
+            // Clear any existing timer
+            if (hideTimer) {
+                clearTimeout(hideTimer);
+            }
+
+            [message.style.display, startCircle.style.display] = ['none', 'none'];
+            gameActive = true;
+            currentNumber = 1;
+            divs = [];
+
+            const usedPositions = new Set();
+            
+            for (let i = 1; i <= currentN; i++) {
+                let pos;
+                do {
+                    pos = getRandomPosition();
+                } while (usedPositions.has(`${pos.x},${pos.y}`));
+                
+                usedPositions.add(`${pos.x},${pos.y}`);
+                const div = createDiv(i, pos.x, pos.y);
+                divs.push(div);
+                gameArea.appendChild(div);
+            }
+            hideDelay = 1000 * (timingFit[0] + currentN * timingFit[1] + currentN * currentN * timingFit[2]);
+            hideTimer = setTimeout(() => {
+                if (gameActive && currentNumber === 1) {
+                    hideNumbers();
+                }
+            }, hideDelay);
+        }
+        function handleClick(event) {
+            if (!gameActive) return;
+            
+            const div = event.target;
+            const num = parseInt(div.dataset.number);
+
+            if (currentNumber === 1) {
+                // Clear timer if it's still running
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+                hideNumbers();
+            }
+
+            if (num === currentNumber) {
+                div.remove();
+                currentNumber++;
+                if (currentNumber > currentN) endRound(true);
+            } else {
+                endRound(false);
+            }
+        }
+        function endRound(success) {
+            gameActive = false;
+            if (hideTimer) {
+                clearTimeout(hideTimer);
+                hideTimer = null;
+            }
+            document.querySelectorAll('.number').forEach(div => div.remove());
+            divs = [];
+            
+            // Update statistics
+            if (!roundStats[currentN]) {
+                roundStats[currentN] = { attempts: 0, successes: 0 };
+            }
+            roundStats[currentN].attempts++;
+            if (success) {
+                roundStats[currentN].successes++;
+            }
+            
+            // Calculate pass rate
+            const stats = roundStats[currentN];
+            const passRate = (stats.successes / stats.attempts * 100).toFixed(0);
+            
+            message.innerHTML = `Round ${currentN} Win Rate:<br>` +
+                               `${passRate}% (${stats.successes}/${stats.attempts})<br>` +
+                               `${success ? 'Pass' : 'Fail'}`;
+            message.style.backgroundColor = success ? '#7796B5' : '#B57777';
+            [message.style.display, startCircle.style.display] = ['block', 'block'];
+            if (success) currentN = Math.min(9, currentN + 1);
+        }
+        startCircle.addEventListener('click', startRound);
+    </script>
+</body>
+</html>
